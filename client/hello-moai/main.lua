@@ -68,6 +68,7 @@ function onKeyboardEvent ( key, down )
 	if down == false then
 		if key >= 49 then
 			if current_state == State_ready then
+				print("dddddddd");
 				local sendString = MOAIJsonParser.encode( { msgID="Game_ready"} )
 
 				s_connect:send(sendString .. endStr);
@@ -140,7 +141,7 @@ end
 function processNetwork()
 	print("xixixi");
 	local pool  = { s_connect }
-	rx, wr, er  = socket.select( pool, nil, 1 );
+	rx, wr, er  = socket.select( pool, nil, 0 );
 	if rx ~= nil then
 		for i,element in ipairs(rx) do
 			print("start connect server5");
