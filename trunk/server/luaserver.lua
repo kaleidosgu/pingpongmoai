@@ -74,7 +74,20 @@ function ItemCollection()
 end
 
 AllPlayers = ItemCollection()
+
 AllTables = ItemCollection()
+function AllTables:JoinFreeChair(player)
+	for t, tableItem in pairs(self.items) do
+		assert(tableItem.players.itemCount < 3 and tableItem.players.itemCount > 0)
+		if tableItem.players.itemCount == 1 then
+			tableItem:JoinPlayer(player)
+			return tableItem
+		end
+	end
+	local tableItem = TableItem()
+	tableItem:JoinPlayer(player)
+	return tableItem
+end
 
 function TableItem()
 	local id = table.maxn(AllTables.items) + 1
@@ -83,6 +96,47 @@ function TableItem()
 	function tableItem:OnRecv(player, jsonTable)
 		-- TODO:
 	end
+	function tableItem:JoinPlayer(player)
+		self.players:AddItem(player)
+		local joined = false
+		local hasOtherPlayer = false
+		for i = 1, 2, 1 do
+			if self.chairs[i] == nil then
+				if not joined then
+					self.chairs[i] = player
+					joined = true
+				end
+			else
+				hasOtherPlayer = true
+				local jsonTable = {msgID = "Player_join"}
+				for t, otherPlayer in pairs(self.players.items) do
+					otherPlayer:Send(jsonTable)
+				end
+			end
+		end
+		assert(joined)
+		local jsonTable = {msgID = "login", hasPlayer = hasOtherPlayer}
+		player.tableItem = self
+		player:Send(jsonTable)
+	end
+	function tableItem:LeavePlayer(playerId)
+		self.players:DelItem(playerId)
+		if self.players.itemCount == 0 then
+			AllTables:DelItem(self.id)
+		else
+			for i = 1, 2, 1 do
+				if self.chairs[i] ~= nil and self.chairs[i].id == playerId then
+					self.chairs[i].tableItem = nil
+					self.chairs[i] = nil
+				end
+			end
+			for t, player in pairs(self.players.items) do
+				local jsonTable = {msgID = "Player_left"}
+				player:Send(jsonTable)
+			end
+		end
+	end
+	tableItem.chairs = {}
 	AllTables:AddItem(tableItem)
 	return tableItem
 end
@@ -98,15 +152,7 @@ function Player(id)
 	end
 	function player:OnDisconnect()
 		AllPlayers:DelItem(self.id)
-		self.tableItem.players:DelItem(self.id)
-		if self.tableItem.players.itemCount == 0 then
-			AllTables:DelItem(self.tableItem.id)
-		else
-			for t, v in pairs(self.tableItem.players.items) do
-				local jsonTable = {msgID = "Player_left"}
-				v:Send(jsonTable)
-			end
-		end
+		self.tableItem:LeavePlayer(self.id)
 	end
 	function player:Send(jsonTable)
 		NetGate:SendToPlayer(self.id, jsonTable)
@@ -115,31 +161,7 @@ function Player(id)
 		NetGate:SendDisconnectPlayer(self.id)
 	end
 	AllPlayers:AddItem(player)
-	local joined = false
-	local tableItem
-	for t, v in pairs(AllTables.items) do
-		tableItem = v
-		if tableItem.players.itemCount < 2 then
-			if tableItem.players.itemCount == 1 then
-				local jsonTable = {msgID = "login", hasPlayer = true}
-				player:Send(jsonTable)
-				local jsonTable = {msgID = "Player_join"}
-				for t, v in pairs(tableItem.players.items) do
-					v:Send(jsonTable)
-				end
-			else
-				assert(false)
-			end
-			joined = true
-		end
-	end
-	if not joined then
-		tableItem = TableItem()
-		local jsonTable = {msgID = "login", hasPlayer = false}
-		player:Send(jsonTable)
-	end
-	tableItem.players:AddItem(player)
-	player.tableItem = tableItem
+	AllTables:JoinFreeChair(player)
 	return player
 end
 
