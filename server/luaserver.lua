@@ -94,7 +94,39 @@ function TableItem()
 	local tableItem = {id = id}
 	tableItem.players = ItemCollection()
 	function tableItem:OnRecv(player, jsonTable)
-		-- TODO:
+		if jsonTable["msgID"] == "Game_ready" then
+			local allReady = true
+			local selfChair
+			local otherChairs = {}
+			for t, chair in pairs(self.chairs) do
+				if chair.player.id == player.id then
+					selfChair = chair
+					if chair.ready then
+						chair.ready = false
+						allReady = false
+					else
+						chair.ready = true
+					end
+				else
+					table.insert(otherChairs, chair)
+					if not chair.ready then
+						allReady = false
+					end
+				end
+			end
+			local jsonTable = {msgID = "Player_ready", status = selfChair.ready, playerSelf = true}
+			selfChair.player:Send(jsonTable)
+			jsonTable.playerSelf = false
+			for t, otherChair in pairs(otherChairs) do
+				otherChair.player:Send(jsonTable)
+			end
+			if allReady then
+				for t, chair in pairs(self.chairs) do
+					local jsonTable = {msgID = "Game_start"}
+					chair.player:Send(jsonTable)
+				end
+			end
+		end
 	end
 	function tableItem:JoinPlayer(player)
 		local joined = false
@@ -102,7 +134,7 @@ function TableItem()
 		for i = 1, 2, 1 do
 			if self.chairs[i] == nil then
 				if not joined then
-					self.chairs[i] = {player = player, status = 0}
+					self.chairs[i] = {player = player, ready = false}
 					joined = true
 				end
 			else
@@ -148,7 +180,6 @@ function Player(id)
 		if self.tableItem ~= nil then
 			self.tableItem:OnRecv(self, jsonTable)
 		end
-		-- TODO:
 	end
 	function player:OnDisconnect()
 		AllPlayers:DelItem(self.id)
