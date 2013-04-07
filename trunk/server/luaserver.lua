@@ -97,13 +97,12 @@ function TableItem()
 		-- TODO:
 	end
 	function tableItem:JoinPlayer(player)
-		self.players:AddItem(player)
 		local joined = false
 		local hasOtherPlayer = false
 		for i = 1, 2, 1 do
 			if self.chairs[i] == nil then
 				if not joined then
-					self.chairs[i] = player
+					self.chairs[i] = {player = player, status = 0}
 					joined = true
 				end
 			else
@@ -115,6 +114,7 @@ function TableItem()
 			end
 		end
 		assert(joined)
+		self.players:AddItem(player)
 		local jsonTable = {msgID = "login", hasPlayer = hasOtherPlayer}
 		player.tableItem = self
 		player:Send(jsonTable)
@@ -125,8 +125,8 @@ function TableItem()
 			AllTables:DelItem(self.id)
 		else
 			for i = 1, 2, 1 do
-				if self.chairs[i] ~= nil and self.chairs[i].id == playerId then
-					self.chairs[i].tableItem = nil
+				if self.chairs[i] ~= nil and self.chairs[i].player.id == playerId then
+					self.chairs[i].player.tableItem = nil
 					self.chairs[i] = nil
 				end
 			end
